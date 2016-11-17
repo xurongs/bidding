@@ -11,13 +11,10 @@ function showPageSlide(pageWidth, href) {
 	});
 }
 
-setTimeout(function () {
-		showPageSlide(580, '/ActivityTarget/Auction/706373' + location.search);
-	}, 0);
-
-function h(n) {
-	return n
+function show(id) {
+	showPageSlide(580, '/ActivityTarget/Auction/' + id + location.search);
 }
+
 
 function format(n) {
 	var t = '';
@@ -48,25 +45,6 @@ function request(parameters, size, success) {
 		},
 		success: function (response) {
 			success(response);
-			// var e = f.PagerData;
-			// var h = f.DataList;
-			// t.pageIndex = e.PageIndex;
-			// n.fn.PagerTable.defaults.pageIndex = t.pageIndex;
-			// n.fn.PagerTable.defaults.ajaxParameters = t.ajaxParameters;
-			// e.TotalCount > 0 ? n('#targetcountdown').show()  : n('#targetcountdown').hide();
-			// t.sortField = e.SortField;
-			// n.fn.PagerTable.defaults.sortField = e.SortField;
-			// n.fn.PagerTable.defaults.selector = n(i).attr('id');
-			// t.sortDirection = e.SortDirection;
-			// n.fn.PagerTable.defaults.sortDirection = e.SortDirection;
-			// u[r] = t;
-			// c = t.primaryKeyName;
-			// o = function () {
-			// 	typeof t.execFunction != 'undefined' && t.execFunction()
-			// };
-			// setTimeout(function () {
-			// 	s(h, t.pageIndex, e.PageCount, t.pagerNumber, o, e)
-			// }, 500)
 		},
 		error: function () {
 		}
@@ -74,12 +52,99 @@ function request(parameters, size, success) {
 
 }
 
-request($('#searchfrm').serializeObject(), 5, function (response) {
-	var pagerData = response.PagerData;
-	request($('#searchfrm').serializeObject(), pagerData.TotalCount, function (response) {
-		var pagerData = response.PagerData;
-		var dataList = response.DataList;
-		alert(pagerData.TotalCount);
-		alert(pagerData.PageCount);
+var options = [];
+
+function load_config() {
+
+	function onError(error) {
+		console.log(`Error: ${error}`);
+	}
+
+	function onGot(result) {
+		if (result[0].location) {
+			options = result[0].location.split(' ')
+				.filter(function (loc) {
+					return loc.length > 0;
+				});
+			console.log('options: ' + options);
+		}
+	}
+
+	var getting = browser.storage.local.get(["location"]);
+	getting.then(onGot, onError);
+}
+
+function reload_config(changes, area) {
+	load_config();
+}
+
+browser.storage.onChanged.addListener(reload_config);
+load_config();
+
+function pickup_expected(records, expected) {
+	return records.find(function (record) {
+		return record.Num === expected;
 	});
-});
+}
+
+function pickup(records) {
+	var mz = options.map(function (option) {
+		return pickup_expected(records, option);
+	})
+	.filter(function (option) {
+		return option !== undefined
+			/* 2: jijiangkaishi 3:canyuxuanfang 5:yichengjiao */
+			&& (option.Status === 2
+			|| option.Status === 3);
+	});
+	return mz[0];
+}
+
+var last = undefined;
+function show_last(id) {
+	if ($('#pageslide').is(':hidden') || last != id) {
+		show(id);
+		last = id;
+	}
+}
+
+var points = ''
+function setTitle() {
+	if (points.length < 4) {
+		points += '.';
+	} else {
+		points = '';
+	}
+	document.title = ('Bidding' + points);
+}
+
+var pause = false;
+
+function retry() {
+	if (!pause) {
+		setTitle();
+		request($('#searchfrm').serializeObject(), 5, function (response) {
+			var pagerData = response.PagerData;
+			request($('#searchfrm').serializeObject(), pagerData.TotalCount, function (response) {
+				var pagerData = response.PagerData;
+				var dataList = response.DataList;
+				var target = pickup(dataList);
+				if (target !== undefined) {
+					var id = pickup(dataList).ID;
+					show_last(id);
+				}
+			});
+		});		
+	} else {
+		document.title = options;
+	}
+}
+
+setInterval(retry, 1000);
+
+function setPause() {
+    pause = !pause;
+}
+
+document.addEventListener("dblclick", setPause, true);
+

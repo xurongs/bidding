@@ -21,6 +21,11 @@
       "matches": ["*://fang.vanke.com/ActivityTarget/Index/*"],
       "js": ["jquery.js", "PageSlide.js", "ActivityTarget.js"]
     }
-  ]
+  ],
 
+  "options_ui": {
+    "page": "options.html"
+  },
+  
+  "permissions": ["storage"]
 }
